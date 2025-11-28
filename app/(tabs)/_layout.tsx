@@ -1,7 +1,13 @@
+import { useAuth } from '@/hooks';
 import { Ionicons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import { Redirect, Tabs } from 'expo-router';
 
 export default function TabsLayout() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) return null;
+  if (!isAuthenticated) return <Redirect href="/(auth)/login" />;
+
   return (
     <Tabs
       screenOptions={{
@@ -11,9 +17,9 @@ export default function TabsLayout() {
         tabBarStyle: {
           borderTopWidth: 1,
           borderTopColor: '#E5E5E5',
-          paddingBottom: 8,
+          paddingBottom: 30,
           paddingTop: 8,
-          height: 60,
+          height: 90,
         },
       }}
     >

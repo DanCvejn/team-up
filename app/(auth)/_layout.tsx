@@ -1,6 +1,12 @@
-import { Stack } from 'expo-router';
+import { useAuth } from '@/hooks';
+import { Redirect, Stack } from 'expo-router';
 
 export default function AuthLayout() {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) return null;
+  if (isAuthenticated) return <Redirect href="/(tabs)/teams" />;
+
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="login" />

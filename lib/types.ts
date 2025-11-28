@@ -11,7 +11,6 @@ export interface User {
 export interface Team {
   id: string;
   name: string;
-  icon: string;
   description?: string;
   invite_code: string;
   created_by: string;

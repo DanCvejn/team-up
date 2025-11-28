@@ -1,15 +1,15 @@
 import { Stack } from 'expo-router';
 
-export default function TeamsLayout() {
+export default function EventsLayout() {
   return (
     <Stack>
       <Stack.Screen
         name="index"
-        options={{ title: 'Moje týmy' }}
+        options={{ title: 'Všechny akce' }}
       />
       <Stack.Screen
         name="[id]"
-        options={{ title: 'Detail týmu' }}
+        options={{ title: 'Detail akce' }}
       />
     </Stack>
   );

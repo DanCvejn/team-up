@@ -1,8 +1,8 @@
 import { useAuth } from '@/hooks';
+import useAlert from '@/hooks/useAlert';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -18,16 +18,19 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
 
+  const { error: showError } = useAlert();
+
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Chyba', 'Vyplň všechna pole');
+      showError('Chyba', 'Vyplň všechna pole');
       return;
     }
 
     try {
       await login(email, password);
+      router.replace('/(tabs)/teams');
     } catch (error: any) {
-      Alert.alert('Chyba přihlášení', error.message);
+      showError('Chyba přihlášení', error.message);
     }
   };
 

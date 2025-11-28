@@ -1,4 +1,5 @@
 import { useAuth } from '@/hooks';
+import { useRouter } from 'expo-router';
 import {
   ScrollView,
   StyleSheet,
@@ -9,6 +10,7 @@ import {
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
+  const router = useRouter();
 
   return (
     <ScrollView style={styles.container}>
@@ -22,7 +24,13 @@ export default function ProfileScreen() {
         <Text style={styles.email}>{user?.email}</Text>
       </View>
 
-      <TouchableOpacity style={styles.logoutButton} onPress={logout}>
+      <TouchableOpacity
+        style={styles.logoutButton}
+        onPress={() => {
+          logout();
+          router.replace('/(auth)/login');
+        }}
+      >
         <Text style={styles.logoutButtonText}>Odhlásit se</Text>
       </TouchableOpacity>
     </ScrollView>

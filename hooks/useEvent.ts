@@ -38,20 +38,31 @@ export function useEvent(eventId: string | null) {
   useEffect(() => {
     if (!eventId) return;
 
+    let unsubEvent: (() => void) | null = null;
+    let unsubResponses: (() => void) | null = null;
+
     // Subscribe na změny akce
-    const unsubEvent = eventsAPI.subscribeToEvent(eventId, (updated) => {
+    eventsAPI.subscribeToEvent(eventId, (updated) => {
       setEvent(updated);
+    }).then((unsub) => {
+      unsubEvent = unsub;
     });
 
     // Subscribe na změny odpovědí
-    const unsubResponses = responsesAPI.subscribeToResponses(eventId, () => {
+    responsesAPI.subscribeToResponses(eventId, () => {
       // Re-fetch responses když se něco změní
       responsesAPI.getEventResponses(eventId).then(setResponses);
+    }).then((unsub) => {
+      unsubResponses = unsub;
     });
 
     return () => {
-      eventsAPI.unsubscribe(eventId);
-      responsesAPI.unsubscribe();
+      if (unsubEvent && typeof unsubEvent === 'function') {
+        unsubEvent();
+      }
+      if (unsubResponses && typeof unsubResponses === 'function') {
+        unsubResponses();
+      }
     };
   }, [eventId]);
 
@@ -61,8 +72,8 @@ export function useEvent(eventId: string | null) {
     setError(null);
     try {
       await responsesAPI.setMyResponse(eventId, response);
-      // Realtime subscription zajistí update
     } catch (err: any) {
+      console.log(err);
       const errorMsg = err?.message || 'Nepodařilo se přidat odpověď';
       setError(errorMsg);
       throw new Error(errorMsg);
@@ -98,9 +109,10 @@ export function useEvent(eventId: string | null) {
   // Helper: spočítej potvrzené
   const getConfirmedCount = useCallback(() => {
     if (!event) return 0;
-    const capacityLabels = event.response_options
-      .filter(opt => opt.countsToCapacity)
-      .map(opt => opt.label);
+    const responseOptions = event.response_options || [];
+    const capacityLabels = responseOptions
+      .filter((opt) => opt.countsToCapacity)
+      .map((opt) => opt.label);
     return responses.filter(r => capacityLabels.includes(r.response)).length;
   }, [event, responses]);
 
@@ -108,17 +120,24 @@ export function useEvent(eventId: string | null) {
   const getSortedResponses = useCallback(() => {
     if (!event) return { confirmed: [], waitlist: [] };
 
-    const capacityLabels = event.response_options
-      .filter(opt => opt.countsToCapacity)
-      .map(opt => opt.label);
+    const responseOptions = event.response_options || [];
+    const capacityLabels = responseOptions
+      .filter((opt) => opt.countsToCapacity)
+      .map((opt) => opt.label);
 
     const sorted = responses
       .filter(r => capacityLabels.includes(r.response))
       .sort((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime());
 
+    // capacity === 0 means unlimited — treat all counted responses as confirmed
+    const capacity = event.capacity ?? 0;
+    if (capacity === 0) {
+      return { confirmed: sorted, waitlist: [] };
+    }
+
     return {
-      confirmed: sorted.slice(0, event.capacity),
-      waitlist: sorted.slice(event.capacity),
+      confirmed: sorted.slice(0, capacity),
+      waitlist: sorted.slice(capacity),
     };
   }, [event, responses]);
 

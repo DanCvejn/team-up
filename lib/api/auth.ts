@@ -37,7 +37,7 @@ export const authAPI = {
    * Aktuální uživatel
    */
   getCurrentUser(): User | null {
-    return pb.authStore.model as User | null;
+    return pb.authStore.record as User | null;
   },
 
   /**
@@ -51,12 +51,7 @@ export const authAPI = {
    * Refresh token
    */
   async refresh(): Promise<User | null> {
-    try {
-      const authData = await pb.collection('users').authRefresh();
-      return authData.record as unknown as User;
-    } catch (error) {
-      console.error('Auth refresh failed');
-      return null;
-    }
+    await pb.collection('users').authRefresh();
+    return pb.authStore.record as User | null;
   },
 };

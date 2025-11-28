@@ -1,9 +1,9 @@
 import { useAuth } from '@/hooks';
+import useAlert from '@/hooks/useAlert';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -23,32 +23,35 @@ export default function RegisterScreen() {
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
 
+  const { error: showError } = useAlert();
+
   const handleRegister = async () => {
     // Validace
     if (!name || !email || !password || !passwordConfirm) {
-      Alert.alert('Chyba', 'Vyplň všechna pole');
+      showError('Chyba', 'Vyplň všechna pole');
       return;
     }
 
     if (password.length < 8) {
-      Alert.alert('Chyba', 'Heslo musí mít alespoň 8 znaků');
+      showError('Chyba', 'Heslo musí mít alespoň 8 znaků');
       return;
     }
 
     if (password !== passwordConfirm) {
-      Alert.alert('Chyba', 'Hesla se neshodují');
+      showError('Chyba', 'Hesla se neshodují');
       return;
     }
 
     if (!email.includes('@')) {
-      Alert.alert('Chyba', 'Zadej platný email');
+      showError('Chyba', 'Zadej platný email');
       return;
     }
 
     try {
       await register(email, password, name);
+      router.replace('/(tabs)/teams');
     } catch (error: any) {
-      Alert.alert('Chyba registrace', error.message);
+      showError('Chyba registrace', error.message);
     }
   };
 

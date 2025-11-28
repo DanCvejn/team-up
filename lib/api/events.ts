@@ -66,10 +66,21 @@ export const eventsAPI = {
   /**
    * Subscribe na změny akce (realtime)
    */
-  subscribeToEvent(eventId: string, callback: (event: Event) => void) {
-    return pb.collection('events').subscribe<Event>(eventId, (e) => {
-      callback(e.record);
-    });
+  async subscribeToEvent(eventId: string, callback: (event: Event) => void) {
+    if (typeof (global as any).EventSource === 'undefined') {
+      console.warn('EventSource not available: realtime subscriptions are disabled. Install a polyfill (react-native-event-source or eventsource).');
+      return null;
+    }
+
+    try {
+      const unsubscribe = await pb.collection('events').subscribe<Event>(eventId, (e) => {
+        callback(e.record);
+      });
+      return unsubscribe;
+    } catch (error) {
+      console.error('Failed to subscribe to event:', error);
+      return null;
+    }
   },
 
   /**

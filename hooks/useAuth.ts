@@ -12,9 +12,15 @@ export function useAuth() {
       try {
         const currentUser = authAPI.getCurrentUser();
         if (currentUser) {
-          // Zkus refresh token
-          const refreshedUser = await authAPI.refresh();
-          setUser(refreshedUser || currentUser);
+          try {
+            const refreshedUser = await authAPI.refresh();
+            setUser(refreshedUser || currentUser);
+          } catch (refreshErr) {
+            // If refresh fails, clear the invalid auth state
+            console.warn('Token refresh failed, clearing auth:', refreshErr);
+            authAPI.logout();
+            setUser(null);
+          }
         }
       } catch (err) {
         console.error('Auth init error:', err);

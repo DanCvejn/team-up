@@ -1,25 +1,40 @@
+import { EmptyState } from '@/components/common/EmptyState';
+import { LoadingSpinner } from '@/components/common/LoadingSpinner';
+import { CreateTeamModal } from '@/components/teams/CreateTeamModal';
+import { JoinTeamModal } from '@/components/teams/JoinTeamModal';
+import { TeamCard } from '@/components/teams/TeamCard';
+import { TeamsFAB } from '@/components/teams/TeamsFAB';
 import { useTeams } from '@/hooks';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import {
-  ActivityIndicator,
-  FlatList,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import useAlert from '@/hooks/useAlert';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { FlatList, StyleSheet, View } from 'react-native';
 
 export default function TeamsListScreen() {
-  const { teams, isLoading } = useTeams();
+  const { teams, isLoading, createTeam, joinTeam, fetchTeams } = useTeams();
   const router = useRouter();
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchTeams();
+    }, [fetchTeams])
+  );
+  const { success } = useAlert();
+
+  const handleJoin = async (code: string) => {
+    await joinTeam(code);
+    success('Úspěch', 'Připojil jsi se k týmu!');
+  };
+
+  const handleCreate = async (data: { name: string; description?: string }) => {
+    await createTeam(data);
+    success('Úspěch', 'Tým byl vytvořen!');
+  };
 
   if (isLoading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#007AFF" />
-      </View>
-    );
+    return <LoadingSpinner />;
   }
 
   return (
@@ -29,38 +44,36 @@ export default function TeamsListScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         renderItem={({ item }) => (
-          <TouchableOpacity
-            style={styles.card}
+          <TeamCard
+            team={item}
             onPress={() => router.push(`/(tabs)/teams/${item.id}`)}
-          >
-            <View style={styles.teamHeader}>
-              <View style={styles.teamAvatar}>
-                <Text style={styles.teamIcon}>{item.icon}</Text>
-              </View>
-              <View style={styles.teamInfo}>
-                <Text style={styles.teamName}>{item.name}</Text>
-                <Text style={styles.teamMeta}>
-                  {item.expand?.team_members_via_team?.length || 0} členů
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={20} color="#8E8E93" />
-            </View>
-          </TouchableOpacity>
+          />
         )}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={styles.emptyIcon}>👥</Text>
-            <Text style={styles.emptyText}>Zatím žádné týmy</Text>
-          </View>
+          <EmptyState
+            icon="👥"
+            title="Zatím žádné týmy"
+            subtitle="Vytvoř nový tým nebo se připoj k existujícímu"
+          />
         }
       />
 
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => router.push('/(tabs)/teams/create')}
-      >
-        <Ionicons name="add" size={28} color="#FFFFFF" />
-      </TouchableOpacity>
+      <TeamsFAB
+        onCreatePress={() => setShowCreateModal(true)}
+        onJoinPress={() => setShowJoinModal(true)}
+      />
+
+      <JoinTeamModal
+        visible={showJoinModal}
+        onClose={() => setShowJoinModal(false)}
+        onJoin={handleJoin}
+      />
+
+      <CreateTeamModal
+        visible={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        onCreate={handleCreate}
+      />
     </View>
   );
 }
@@ -70,77 +83,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F5F5',
   },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   list: {
     padding: 20,
-  },
-  card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-  },
-  teamHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  teamAvatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  teamIcon: {
-    fontSize: 28,
-  },
-  teamInfo: {
-    flex: 1,
-  },
-  teamName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1A1A1A',
-    marginBottom: 4,
-  },
-  teamMeta: {
-    fontSize: 14,
-    color: '#8E8E93',
-  },
-  empty: {
-    alignItems: 'center',
-    paddingVertical: 60,
-  },
-  emptyIcon: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: '#8E8E93',
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 20,
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    paddingBottom: 100,
   },
 });

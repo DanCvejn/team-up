@@ -33,7 +33,6 @@ export const teamsAPI = {
    */
   async createTeam(data: {
     name: string;
-    icon: string;
     description?: string;
   }): Promise<Team> {
     const userId = pb.authStore.model?.id;

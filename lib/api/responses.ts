@@ -6,7 +6,7 @@ export const responsesAPI = {
    * Přidej/změň svoji odpověď
    */
   async setMyResponse(eventId: string, response: string): Promise<EventResponse> {
-    const userId = pb.authStore.model?.id;
+    const userId = pb.authStore.record?.id;
     if (!userId) throw new Error('Not authenticated');
 
     // Zkontroluj jestli už má odpověď
@@ -15,14 +15,11 @@ export const responsesAPI = {
     });
 
     let result: EventResponse;
-
     if (existing.length > 0) {
-      // Update existující
       result = await pb.collection('event_responses').update<EventResponse>(existing[0].id, {
         response,
       });
     } else {
-      // Vytvoř novou
       result = await pb.collection('event_responses').create<EventResponse>({
         event: eventId,
         user: userId,
@@ -78,12 +75,23 @@ export const responsesAPI = {
   /**
    * Subscribe na změny odpovědí (realtime)
    */
-  subscribeToResponses(eventId: string, callback: (response: EventResponse) => void) {
-    return pb.collection('event_responses').subscribe<EventResponse>('*', (e) => {
-      if (e.record.event === eventId) {
-        callback(e.record);
-      }
-    });
+  async subscribeToResponses(eventId: string, callback: (response: EventResponse) => void) {
+    if (typeof (global as any).EventSource === 'undefined') {
+      console.warn('EventSource not available: realtime responses subscriptions are disabled. Install a polyfill (react-native-event-source or eventsource).');
+      return null;
+    }
+
+    try {
+      const unsubscribe = await pb.collection('event_responses').subscribe<EventResponse>('*', (e) => {
+        if (e.record.event === eventId) {
+          callback(e.record);
+        }
+      });
+      return unsubscribe;
+    } catch (error) {
+      console.error('Failed to subscribe to responses:', error);
+      return null;
+    }
   },
 
   /**

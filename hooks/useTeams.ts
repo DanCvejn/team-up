@@ -7,9 +7,8 @@ export function useTeams() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Načti týmy při mount
   const fetchTeams = useCallback(async () => {
-    setIsLoading(true);
+    if (teams.length === 0) setIsLoading(true);
     setError(null);
     try {
       const data = await teamsAPI.getMyTeams();
@@ -25,15 +24,11 @@ export function useTeams() {
     fetchTeams();
   }, [fetchTeams]);
 
-  const createTeam = useCallback(async (data: {
-    name: string;
-    icon: string;
-    description?: string;
-  }) => {
+  const createTeam = useCallback(async (data: { name: string; description?: string }) => {
     setError(null);
     try {
       const newTeam = await teamsAPI.createTeam(data);
-      setTeams(prev => [newTeam, ...prev]);
+      setTeams(prev => [...prev, newTeam]);
       return newTeam;
     } catch (err: any) {
       const errorMsg = err?.message || 'Nepodařilo se vytvořit tým';
@@ -46,7 +41,7 @@ export function useTeams() {
     setError(null);
     try {
       const updated = await teamsAPI.updateTeam(teamId, data);
-      setTeams(prev => prev.map(t => t.id === teamId ? updated : t));
+      setTeams(prev => prev.map(t => (t.id === teamId ? updated : t)));
       return updated;
     } catch (err: any) {
       const errorMsg = err?.message || 'Nepodařilo se aktualizovat tým';
