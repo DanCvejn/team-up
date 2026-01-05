@@ -19,7 +19,10 @@ export function useEvents(teamId: string | null) {
       const data = await eventsAPI.getTeamEvents(teamId);
       setEvents(data);
     } catch (err: any) {
-      setError(err?.message || 'Nepodařilo se načíst akce');
+      console.error('useEvents fetchEvents error:', err);
+      // Tiše ignoruj error a nastav prázdné pole - API už má error handling
+      setEvents([]);
+      setError(null); // Nezobrazuj error uživateli
     } finally {
       setIsLoading(false);
     }

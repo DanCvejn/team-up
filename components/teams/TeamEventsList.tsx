@@ -1,16 +1,30 @@
 import type { Event } from '@/lib/types';
 import { Plurals } from '@/lib/utils/pluralize';
 import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
 import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface TeamEventsListProps {
   events: Event[];
   onEventPress: (eventId: string) => void;
   onCreatePress: () => void;
+  onShowAllPress?: () => void;
 }
 
-export function TeamEventsList({ events, onEventPress, onCreatePress }: TeamEventsListProps) {
-  if (events.length === 0) {
+export function TeamEventsList({ events, onEventPress, onCreatePress, onShowAllPress }: TeamEventsListProps) {
+  const [showAll, setShowAll] = useState(false);
+
+  // Filtruj jen nadcházející akce
+  const now = new Date();
+  const upcomingEvents = events
+    .filter(e => new Date(e.date) >= now)
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()); // Od nejbližší
+
+  // Zobraz max 5 pokud není "zobrazit všechny"
+  const displayedEvents = showAll ? upcomingEvents : upcomingEvents.slice(0, 5);
+  const hasMore = upcomingEvents.length > 5;
+
+  if (upcomingEvents.length === 0) {
     return (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyIcon}>📅</Text>
@@ -26,14 +40,16 @@ export function TeamEventsList({ events, onEventPress, onCreatePress }: TeamEven
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Akce ({Plurals.eventWord(events.length)})</Text>
+        <Text style={styles.title}>
+          Nadcházející akce ({Plurals.eventWord(upcomingEvents.length)})
+        </Text>
         <TouchableOpacity style={styles.addButton} onPress={onCreatePress}>
           <Ionicons name="add" size={24} color="#007AFF" />
         </TouchableOpacity>
       </View>
 
       <FlatList
-        data={events}
+        data={displayedEvents}
         keyExtractor={(item) => item.id}
         scrollEnabled={false}
         renderItem={({ item }) => {
@@ -68,6 +84,33 @@ export function TeamEventsList({ events, onEventPress, onCreatePress }: TeamEven
             </TouchableOpacity>
           );
         }}
+        ListFooterComponent={
+          hasMore && !showAll ? (
+            <TouchableOpacity
+              style={styles.showAllButton}
+              onPress={() => {
+                if (onShowAllPress) {
+                  onShowAllPress();
+                } else {
+                  setShowAll(true);
+                }
+              }}
+            >
+              <Text style={styles.showAllText}>
+                {onShowAllPress ? `Zobrazit všechny akce (${events.length})` : `Zobrazit všechny (${upcomingEvents.length})`}
+              </Text>
+              <Ionicons name="chevron-down" size={16} color="#007AFF" />
+            </TouchableOpacity>
+          ) : hasMore && showAll ? (
+            <TouchableOpacity
+              style={styles.showAllButton}
+              onPress={() => setShowAll(false)}
+            >
+              <Text style={styles.showAllText}>Zobrazit méně</Text>
+              <Ionicons name="chevron-up" size={16} color="#007AFF" />
+            </TouchableOpacity>
+          ) : null
+        }
       />
     </View>
   );
@@ -172,5 +215,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  showAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    marginTop: 8,
+  },
+  showAllText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#007AFF',
   },
 });

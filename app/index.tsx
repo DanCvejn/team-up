@@ -5,12 +5,11 @@ export default function Index() {
   const { isAuthenticated, isLoading } = useAuth();
 
   if (isLoading) {
-    return null; // Or your loading screen
+    return null;
   }
 
-  console.log('isAuthenticated', isAuthenticated);
   if (isAuthenticated) {
-    return <Redirect href="/(tabs)/teams" />;
+    return <Redirect href="/(tabs)/events" />;
   }
 
   return <Redirect href="/(auth)/login" />;

@@ -10,13 +10,15 @@ interface TeamDetailHeaderProps {
   memberCount: number;
   isAdmin: boolean;
   onSettingsPress: () => void;
+  onShowAllEvents?: () => void;
 }
 
 export function TeamDetailHeader({
   team,
   memberCount,
   isAdmin,
-  onSettingsPress
+  onSettingsPress,
+  onShowAllEvents
 }: TeamDetailHeaderProps) {
   const [showCode, setShowCode] = useState(false);
 
@@ -84,6 +86,15 @@ export function TeamDetailHeader({
           </View>
         ) : ""}
       </View>
+
+      {/* Show All Events Button */}
+      {onShowAllEvents && (
+        <TouchableOpacity style={styles.showAllEventsButton} onPress={onShowAllEvents}>
+          <Ionicons name="calendar-outline" size={20} color="#007AFF" />
+          <Text style={styles.showAllEventsText}>Zobrazit všechny akce</Text>
+          <Ionicons name="chevron-forward" size={20} color="#007AFF" />
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -173,5 +184,20 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  showAllEventsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#F5F5F5',
+    padding: 14,
+    borderRadius: 12,
+  },
+  showAllEventsText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#007AFF',
+    flex: 1,
   },
 });

@@ -77,8 +77,9 @@ export function TeamsFAB({ onCreatePress, onJoinPress }: TeamsFABProps) {
             style={[styles.fab, styles.fabSecondary]}
             onPress={handleJoinPress}
             activeOpacity={0.8}
+            accessibilityLabel="Připojit se k týmu"
           >
-            <Ionicons name="enter" size={24} color="#007AFF" />
+            <Ionicons name="key-outline" size={24} color="#007AFF" />
           </TouchableOpacity>
         </Animated.View>
 
@@ -102,8 +103,9 @@ export function TeamsFAB({ onCreatePress, onJoinPress }: TeamsFABProps) {
             style={[styles.fab, styles.fabSecondary]}
             onPress={handleCreatePress}
             activeOpacity={0.8}
+            accessibilityLabel="Vytvořit si vlastní tým"
           >
-            <Ionicons name="people" size={24} color="#007AFF" />
+            <Ionicons name="person-add-outline" size={24} color="#007AFF" />
           </TouchableOpacity>
         </Animated.View>
 
