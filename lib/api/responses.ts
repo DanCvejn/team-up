@@ -66,7 +66,7 @@ export const responsesAPI = {
     const responses = await pb.collection('event_responses').getFullList<EventResponse>({
       filter: pb.filter('event = {:eventId}', { eventId }),
       expand: 'user,added_by',
-      sort: 'created',
+      sort: '-updated',
     });
 
     return responses;

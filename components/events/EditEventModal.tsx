@@ -1,30 +1,28 @@
 import useAlert from '@/hooks/useAlert';
-import type { ResponseOption } from '@/lib/types';
+import type { Event, ResponseOption } from '@/lib/types';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Modal from '../common/Modal';
 import { EventOptionEditor } from './EventOptionEditor';
 
-interface CreateEventModalProps {
+interface EditEventModalProps {
   visible: boolean;
   onClose: () => void;
-  onCreate: (data: { name: string; description?: string; date: string; location?: string; capacity: number; response_options: ResponseOption[] }) => Promise<void>;
+  onUpdate: (data: { title: string; description?: string; date: string; location?: string; capacity: number; response_options: ResponseOption[] }) => Promise<void>;
+  event: Event;
 }
 
-export function CreateEventModal({ visible, onClose, onCreate }: CreateEventModalProps) {
-  const [name, setName] = useState('');
+export function EditEventModal({ visible, onClose, onUpdate, event }: EditEventModalProps) {
+  const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [date, setDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [location, setLocation] = useState('');
   const [capacity, setCapacity] = useState<string>('');
-  const [responseOptions, setResponseOptions] = useState<ResponseOption[]>([
-    { id: Date.now(), label: 'Jdu', countsToCapacity: true, color: 'green' },
-    { id: Date.now() + 1, label: 'Nejdu', countsToCapacity: false, color: 'red' },
-  ]);
+  const [responseOptions, setResponseOptions] = useState<ResponseOption[]>([]);
   const [optionText, setOptionText] = useState('');
   const [selectedColor, setSelectedColor] = useState<ResponseOption['color']>('green');
   const [showAddOptionSheet, setShowAddOptionSheet] = useState(false);
@@ -33,8 +31,20 @@ export function CreateEventModal({ visible, onClose, onCreate }: CreateEventModa
 
   const { error: showError } = useAlert();
 
-  const handleCreate = async () => {
-    if (!name.trim()) {
+  // Pre-populate form with existing event data
+  useEffect(() => {
+    if (visible && event) {
+      setTitle(event.title || '');
+      setDescription(event.description || '');
+      setDate(event.date ? new Date(event.date) : null);
+      setLocation(event.location || '');
+      setCapacity(String(event.capacity ?? 0));
+      setResponseOptions(event.response_options || []);
+    }
+  }, [visible, event]);
+
+  const handleUpdate = async () => {
+    if (!title.trim()) {
       showError('Chyba', 'Zadej název události');
       return;
     }
@@ -43,7 +53,6 @@ export function CreateEventModal({ visible, onClose, onCreate }: CreateEventModa
       return;
     }
     const cap = parseInt(capacity || '0', 10);
-    // capacity == 0 means unlimited
     if (Number.isNaN(cap) || cap < 0) {
       showError('Chyba', 'Zadej platnou kapacitu (0 = neomezeno)');
       return;
@@ -55,20 +64,14 @@ export function CreateEventModal({ visible, onClose, onCreate }: CreateEventModa
     }
     setIsLoading(true);
     try {
-      await onCreate({
-        name: name.trim(),
+      await onUpdate({
+        title: title.trim(),
         description: description.trim() || undefined,
         date: date.toISOString(),
         location: location.trim() || undefined,
         capacity: cap,
         response_options: responseOptions,
       });
-      setName('');
-      setDescription('');
-      setDate(null);
-      setLocation('');
-      setCapacity('');
-      setResponseOptions([]);
       onClose();
     } catch (error: any) {
       showError('Chyba', error.message);
@@ -79,7 +82,7 @@ export function CreateEventModal({ visible, onClose, onCreate }: CreateEventModa
 
   return (
     <Modal
-      title="Vytvoř novou událost"
+      title="Upravit událost"
       scroll
       visible={visible}
       onClose={onClose}
@@ -91,8 +94,8 @@ export function CreateEventModal({ visible, onClose, onCreate }: CreateEventModa
           <TextInput
             style={styles.input}
             placeholder="např. Turnaj v šipkách"
-            value={name}
-            onChangeText={setName}
+            value={title}
+            onChangeText={setTitle}
             maxLength={50}
             editable={!isLoading}
           />
@@ -149,7 +152,6 @@ export function CreateEventModal({ visible, onClose, onCreate }: CreateEventModa
               onChange={(event, selectedDate) => {
                 setShowDatePicker(false);
                 if (selectedDate) {
-                  // Zachovej existující čas pokud už je nastavený
                   if (date) {
                     selectedDate.setHours(date.getHours());
                     selectedDate.setMinutes(date.getMinutes());
@@ -211,11 +213,11 @@ export function CreateEventModal({ visible, onClose, onCreate }: CreateEventModa
 
         <TouchableOpacity
           style={[styles.button, styles.primaryButton]}
-          onPress={handleCreate}
+          onPress={handleUpdate}
           disabled={isLoading}
         >
           <Text style={styles.primaryButtonText}>
-            {isLoading ? 'Vytvářím...' : 'Vytvořit událost'}
+            {isLoading ? 'Aktualizuji...' : 'Uložit změny'}
           </Text>
         </TouchableOpacity>
       </View>

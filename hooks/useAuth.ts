@@ -16,7 +16,6 @@ export function useAuth() {
             const refreshedUser = await authAPI.refresh();
             setUser(refreshedUser || currentUser);
           } catch (refreshErr) {
-            // If refresh fails, clear the invalid auth state
             console.warn('Token refresh failed, clearing auth:', refreshErr);
             authAPI.logout();
             setUser(null);

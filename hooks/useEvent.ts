@@ -106,6 +106,19 @@ export function useEvent(eventId: string | null) {
     }
   }, []);
 
+  const updateEvent = useCallback(async (eventId: string, data: Partial<Event>) => {
+    setError(null);
+    try {
+      const updated = await eventsAPI.updateEvent(eventId, data);
+      setEvent(updated);
+      return updated;
+    } catch (err: any) {
+      const errorMsg = err?.message || 'Nepodařilo se aktualizovat událost';
+      setError(errorMsg);
+      throw new Error(errorMsg);
+    }
+  }, []);
+
   // Helper: spočítej potvrzené
   const getConfirmedCount = useCallback(() => {
     if (!event) return 0;
@@ -150,6 +163,7 @@ export function useEvent(eventId: string | null) {
     setMyResponse,
     addGuest,
     deleteResponse,
+    updateEvent,
     getConfirmedCount,
     getSortedResponses,
   };

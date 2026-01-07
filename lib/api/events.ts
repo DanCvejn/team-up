@@ -6,13 +6,24 @@ export const eventsAPI = {
    * Načti akce týmu
    */
   async getTeamEvents(teamId: string): Promise<Event[]> {
-    const events = await pb.collection('events').getFullList<Event>({
-      filter: pb.filter('team = {:teamId}', { teamId }),
-      expand: 'created_by,event_responses_via_event.user,event_responses_via_event.added_by',
-      sort: '-date',
-    });
+    try {
+      const events = await pb.collection('events').getFullList<Event>({
+        filter: pb.filter('team = {:teamId}', { teamId }),
+        expand: 'team', // Odstranil event_responses_via_event - může způsobovat error
+        sort: '-date',
+      });
 
-    return events;
+      return events;
+    } catch (error: any) {
+      console.error('Error fetching team events:', error);
+      console.error('Error details:', { status: error?.status, message: error?.message, data: error?.data });
+      // Pokud je to 404 nebo prázdný výsledek, vrať prázdné pole
+      if (error?.status === 404 || error?.status === 0) {
+        return [];
+      }
+      // Vrať prázdné pole i pro jiné chyby, aby to nezrušilo celý detail týmu
+      return [];
+    }
   },
 
   /**
@@ -20,7 +31,7 @@ export const eventsAPI = {
    */
   async getEvent(eventId: string): Promise<Event> {
     const event = await pb.collection('events').getOne<Event>(eventId, {
-      expand: 'created_by,event_responses_via_event.user,event_responses_via_event.added_by',
+      expand: 'created_by,team',
     });
     return event;
   },

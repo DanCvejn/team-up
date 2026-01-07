@@ -1,7 +1,7 @@
+import { EventCard } from '@/components/events/EventCard';
 import { useTeams } from '@/hooks';
-import { eventsAPI } from '@/lib/api';
-import type { Event } from '@/lib/types';
-import { Ionicons } from '@expo/vector-icons';
+import { eventsAPI, responsesAPI } from '@/lib/api';
+import type { Event, EventResponse } from '@/lib/types';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -9,15 +9,14 @@ import {
   FlatList,
   RefreshControl,
   StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+  Text, View
 } from 'react-native';
 
 export default function EventsListScreen() {
   const { teams } = useTeams();
   const router = useRouter();
   const [events, setEvents] = useState<Event[]>([]);
+  const [eventResponses, setEventResponses] = useState<Record<string, EventResponse[]>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -31,12 +30,33 @@ export default function EventsListScreen() {
         allEvents.push(...teamEvents);
       }
 
+      // Načti responses pro každou akci zvlášť
+      const responsesMap: Record<string, EventResponse[]> = {};
+      for (const event of allEvents) {
+        try {
+          const responses = await responsesAPI.getEventResponses(event.id);
+          responsesMap[event.id] = responses;
+        } catch (error) {
+          console.error(`Failed to fetch responses for event ${event.id}:`, error);
+          responsesMap[event.id] = [];
+        }
+      }
+
+      // Filtruj akce do 3 měsíců zpět
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+      const recentEvents = allEvents.filter((event) => {
+        return new Date(event.date) >= threeMonthsAgo;
+      });
+
       // Seřaď podle data (nejnovější první)
-      allEvents.sort((a, b) =>
+      recentEvents.sort((a, b) =>
         new Date(b.date).getTime() - new Date(a.date).getTime()
       );
 
-      setEvents(allEvents);
+      setEvents(recentEvents);
+      setEventResponses(responsesMap);
     } catch (error) {
       console.error('Failed to fetch events:', error);
     } finally {
@@ -66,6 +86,11 @@ export default function EventsListScreen() {
     );
   }
 
+  // Rozděl na nadcházející a proběhlé
+  const now = new Date();
+  const upcomingEvents = events.filter(e => new Date(e.date) >= now);
+  const pastEvents = events.filter(e => new Date(e.date) < now);
+
   return (
     <View style={styles.container}>
       <FlatList
@@ -75,19 +100,42 @@ export default function EventsListScreen() {
         refreshControl={
           <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
         }
-        renderItem={({ item }) => (
-          <EventCard
-            event={item}
-            onPress={() => router.push(`/(tabs)/events/${item.id}`)}
-          />
-        )}
+        ListHeaderComponent={
+          events.length > 0 ? (
+            <>
+              {upcomingEvents.length > 0 && (
+                <Text style={styles.sectionTitle}>Nadcházející akce</Text>
+              )}
+            </>
+          ) : null
+        }
+        renderItem={({ item, index }) => {
+          // Zobraz "Proběhlé akce" header před první proběhlou akcí
+          const isPast = new Date(item.date) < now;
+          const prevItem = index > 0 ? events[index - 1] : null;
+          const prevIsPast = prevItem ? new Date(prevItem.date) < now : false;
+          const showPastHeader = isPast && !prevIsPast;
+
+          return (
+            <>
+              {showPastHeader && (
+                <Text style={styles.sectionTitle}>Proběhlé akce</Text>
+              )}
+              <EventCard
+                event={item}
+                responses={eventResponses[item.id] || []}
+                onPress={() => router.push(`/(tabs)/events/${item.id}`)}
+              />
+            </>
+          );
+        }}
         ListEmptyComponent={
           <View style={styles.empty}>
             <Text style={styles.emptyIcon}>📅</Text>
             <Text style={styles.emptyText}>
               {teams.length === 0
                 ? 'Zatím nejsi členem žádného týmu'
-                : 'Žádné nadcházející akce'
+                : 'Žádné akce za poslední 3 měsíce'
               }
             </Text>
           </View>
@@ -99,107 +147,11 @@ export default function EventsListScreen() {
 
 interface EventCardProps {
   event: Event;
+  responses: EventResponse[];
   onPress: () => void;
 }
 
-function EventCard({ event, onPress }: EventCardProps) {
-  const dateObj = new Date(event.date);
-  const now = new Date();
-  const isPast = dateObj < now;
-
-  // Formátování data
-  const dateStr = dateObj.toLocaleDateString('cs-CZ', {
-    day: 'numeric',
-    month: 'long',
-    year: dateObj.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
-  });
-  const timeStr = dateObj.toLocaleTimeString('cs-CZ', {
-    hour: '2-digit',
-    minute: '2-digit'
-  });
-
-  // Spočítej obsazenost (bez dělení nulou) — kapacita 0 znamená neomezeno
-  const responses = event.expand?.event_responses_via_event || [];
-  const responseOptions = event.response_options || [];
-  const capacityOptions = responseOptions
-    .filter((opt) => opt.countsToCapacity)
-    .map((opt) => opt.label);
-
-  const confirmedCount = responses.filter((r) =>
-    capacityOptions.includes(r.response)
-  ).length;
-
-  // Kapacita 0 považujeme za "neomezeno" — zabraň dělení nulou
-  const capacity = event.capacity ?? 0;
-  const percentage = capacity === 0 ? 100 : (confirmedCount / capacity) * 100;
-  const isFull = capacity !== 0 && confirmedCount >= capacity;
-
-  return (
-    <TouchableOpacity
-      style={[styles.card, isPast && styles.cardPast]}
-      onPress={onPress}
-      activeOpacity={0.7}
-    >
-      {/* Header s datem */}
-      <View style={styles.eventHeader}>
-        <View style={styles.dateBox}>
-          <Text style={styles.dateDay}>
-            {dateObj.getDate()}
-          </Text>
-          <Text style={styles.dateMonth}>
-            {dateObj.toLocaleDateString('cs-CZ', { month: 'short' }).toUpperCase()}
-          </Text>
-        </View>
-
-        <View style={styles.eventInfo}>
-          <Text style={[styles.eventTitle, isPast && styles.textPast]}>
-            {event.title}
-          </Text>
-          <View style={styles.eventMeta}>
-            <Ionicons name="time-outline" size={14} color="#8E8E93" />
-            <Text style={styles.metaText}>{timeStr}</Text>
-          </View>
-          <View style={styles.eventMeta}>
-            <Ionicons name="location-outline" size={14} color="#8E8E93" />
-            <Text style={styles.metaText}>{event.location}</Text>
-          </View>
-        </View>
-
-        {isPast && (
-          <View style={styles.pastBadge}>
-            <Text style={styles.pastBadgeText}>Proběhlo</Text>
-          </View>
-        )}
-      </View>
-
-      {/* Kapacita */}
-      <View style={styles.capacitySection}>
-        <View style={styles.capacityBar}>
-          <View
-            style={[
-              styles.capacityFill,
-              isFull && styles.capacityFillFull,
-              isPast && styles.capacityFillPast,
-            ]}
-            // @ts-ignore
-            width={`${Math.min(percentage, 100)}%`}
-          />
-        </View>
-          <Text style={[styles.capacityText, isPast && styles.textPast]}>
-            {capacity === 0 ? `${confirmedCount}/∞` : `${confirmedCount}/${capacity}`}
-          </Text>
-      </View>
-
-      {/* Team badge */}
-      {event.expand?.team && (
-        <View style={styles.teamBadge}>
-          <Text style={styles.teamBadgeIcon}>{event.expand.team.icon}</Text>
-          <Text style={styles.teamBadgeName}>{event.expand.team.name}</Text>
-        </View>
-      )}
-    </TouchableOpacity>
-  );
-}
+// EventCard moved to components/events/EventCard.tsx
 
 const styles = StyleSheet.create({
   container: {
@@ -328,9 +280,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#F0F0F0',
   },
-  teamBadgeIcon: {
-    fontSize: 16,
-  },
   teamBadgeName: {
     fontSize: 13,
     color: '#8E8E93',
@@ -348,5 +297,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#8E8E93',
     textAlign: 'center',
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1A1A1A',
+    marginBottom: 12,
+    marginTop: 8,
   },
 });

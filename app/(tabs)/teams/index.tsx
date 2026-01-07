@@ -8,13 +8,14 @@ import { useTeams } from '@/hooks';
 import useAlert from '@/hooks/useAlert';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 
 export default function TeamsListScreen() {
   const { teams, isLoading, createTeam, joinTeam, fetchTeams } = useTeams();
   const router = useRouter();
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -22,6 +23,12 @@ export default function TeamsListScreen() {
     }, [fetchTeams])
   );
   const { success } = useAlert();
+
+  const onRefresh = async () => {
+    setIsRefreshing(true);
+    await fetchTeams();
+    setIsRefreshing(false);
+  };
 
   const handleJoin = async (code: string) => {
     await joinTeam(code);
@@ -43,6 +50,9 @@ export default function TeamsListScreen() {
         data={teams}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
+        refreshControl={
+          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />
+        }
         renderItem={({ item }) => (
           <TeamCard
             team={item}

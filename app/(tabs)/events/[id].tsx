@@ -1,19 +1,25 @@
 import Modal from '@/components/common/Modal';
-import { useAlert, useAuth, useEvent } from '@/hooks';
+import { EditEventModal } from '@/components/events/EditEventModal';
+import { useAlert, useAuth, useEvent, useTeam } from '@/hooks';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { event, responses, isLoading, setMyResponse, addGuest, deleteResponse } = useEvent(id);
+  const { event, responses, isLoading, setMyResponse, addGuest, deleteResponse, updateEvent } = useEvent(id);
   const { user } = useAuth();
   const { success, error: showError } = useAlert();
+
+  // Get team members to check if user is admin
+  const teamId = event?.team;
+  const { members } = useTeam(teamId || null);
 
   const [showGuestModal, setShowGuestModal] = useState(false);
   const [guestName, setGuestName] = useState('');
   const [guestOption, setGuestOption] = useState<string | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
 
   // Helper to get color hex from color name
   const getColorHex = (colorName: string) => {
@@ -46,21 +52,60 @@ export default function EventDetailScreen() {
   // Helper to count responses for an option
   const responseOptions = event.response_options || [];
 
+  // Check if event is in the past
+  const isPastEvent = new Date(event.date) < new Date();
+
+  // Check if user can edit (creator or team admin)
+  const isCreator = event.created_by === user?.id;
+  const currentMember = members.find(m => m.user === user?.id);
+  const isTeamAdmin = currentMember?.role === 'admin';
+  const canEdit = isCreator || isTeamAdmin;
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{event.title}</Text>
-      <Text style={styles.subtitle}>{new Date(event.date).toLocaleString('cs-CZ')}</Text>
+    <>
+    <ScrollView style={styles.container}>
+      {/* Header Info */}
+      <View style={styles.header}>
+        <View style={styles.titleRow}>
+          <Text style={styles.title}>{event.title}</Text>
+          {canEdit && (
+            <TouchableOpacity
+              onPress={() => setShowEditModal(true)}
+              style={styles.editButton}
+            >
+              <Ionicons name="create-outline" size={24} color="#007AFF" />
+            </TouchableOpacity>
+          )}
+        </View>
+        <View style={styles.headerRow}>
+          <Ionicons name="calendar" size={16} color="#8E8E93" />
+          <Text style={styles.subtitle}>{new Date(event.date).toLocaleTimeString('cs-CZ', {hour: '2-digit', minute: '2-digit'}) + "  " + new Date(event.date).toLocaleDateString('cs-CZ')}</Text>
+        </View>
 
-      {event.location ? (
-        <Text style={styles.meta}>📍 {event.location}</Text>
-      ) : null}
+        {event.location && (
+          <View style={styles.headerRow}>
+            <Ionicons name="location" size={16} color="#8E8E93" />
+            <Text style={styles.meta}>{event.location}</Text>
+          </View>
+        )}
 
-      {event.description ? (
-        <Text style={styles.description}>{event.description}</Text>
-      ) : null}
+        {event.description && (
+          <Text style={styles.description}>{event.description}</Text>
+        )}
 
-      <View style={styles.section}>
+        {isPastEvent && (
+          <View style={styles.pastBadge}>
+            <Text style={styles.pastBadgeText}>Akce proběhla</Text>
+          </View>
+        )}
+      </View>
+
+      {/* Tvoje účast - Card */}
+      <View style={styles.card}>
         <Text style={styles.sectionTitle}>Tvoje účast</Text>
+        {isPastEvent && (
+          <Text style={styles.pastEventNotice}>Akce již proběhla - nelze měnit účast</Text>
+        )}
         <View style={styles.optionsGrid}>
           {responseOptions.map((item) => {
             const isSelected = responses.some(r => r.user === user?.id && r.response === item.label);
@@ -68,11 +113,13 @@ export default function EventDetailScreen() {
             return (
               <TouchableOpacity
                 key={String(item.id)}
+                disabled={isPastEvent}
                 style={[
                   styles.optionButton,
                   {
                     borderColor: colorHex,
                     backgroundColor: isSelected ? colorHex : '#FFF',
+                    opacity: isPastEvent ? 0.5 : 1,
                   }
                 ]}
                 onPress={async () => {
@@ -91,12 +138,15 @@ export default function EventDetailScreen() {
           })}
         </View>
 
-        <TouchableOpacity style={styles.addGuestButton} onPress={() => setShowGuestModal(true)}>
-          <Text style={styles.addGuestText}>Přidat hosta</Text>
-        </TouchableOpacity>
+        {!isPastEvent && (
+          <TouchableOpacity style={styles.addGuestButton} onPress={() => setShowGuestModal(true)}>
+            <Text style={styles.addGuestText}>Přidat hosta</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
-      <View style={styles.section}>
+      {/* Účastníci - Card */}
+      <View style={styles.card}>
         <Text style={styles.sectionTitle}>Účastníci</Text>
         {responseOptions.map((opt) => {
           const list = responses.filter(r => r.response === opt.label);
@@ -107,16 +157,16 @@ export default function EventDetailScreen() {
                 <View style={[styles.swatchSmall, (styles as any)[`color_${opt.color}`]]} />
                 <Text style={styles.responseGroupTitle}>
                   {opt.label} ({list.length})
-                  {opt.countsToCapacity ? ' • počítá do kapacity' : ''}
+                  {opt.countsToCapacity ? ' • počítá se do kapacity' : ''}
                 </Text>
               </View>
 
               {list.map((r) => (
                 <View key={r.id} style={styles.responseRow}>
                   <Text style={styles.responseName}>{r.expand?.user?.name || r.guest_name || 'Neznámý'}</Text>
-                  <Text style={styles.responseMeta}>{new Date(r.created).toLocaleString('cs-CZ')}</Text>
-                  {/* allow deleting own responses */}
-                  {(r.user === user?.id || r.added_by === user?.id) && (
+                  <Text style={styles.responseMeta}>{new Date(r.updated).toLocaleString('cs-CZ')}</Text>
+                  {/* allow deleting only guests (added by current user) */}
+                  {r.guest_name && r.added_by === user?.id && (
                     <TouchableOpacity onPress={() => deleteResponse(r.id)} style={styles.smallTrash}>
                       <Ionicons name="trash-outline" size={16} color="#FF3B30" />
                     </TouchableOpacity>
@@ -127,6 +177,7 @@ export default function EventDetailScreen() {
           );
         })}
       </View>
+    </ScrollView>
 
       {/* Add guest modal */}
       <Modal title="Přidat hosta" visible={showGuestModal} onClose={() => setShowGuestModal(false)}>
@@ -165,7 +216,25 @@ export default function EventDetailScreen() {
           </TouchableOpacity>
         </View>
       </Modal>
-    </View>
+
+      {/* Edit event modal */}
+      {event && (
+        <EditEventModal
+          visible={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          event={event}
+          onUpdate={async (data) => {
+            try {
+              await updateEvent(id, data);
+              success('Úspěch', 'Událost byla aktualizována');
+              setShowEditModal(false);
+            } catch (error: any) {
+              showError('Chyba', error.message);
+            }
+          }}
+        />
+      )}
+    </>
   );
 }
 
@@ -174,30 +243,69 @@ export default function EventDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
     backgroundColor: '#F5F5F5',
   },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   errorText: { color: '#FF3B30' },
-  title: { fontSize: 24, fontWeight: '700', color: '#1A1A1A', marginBottom: 6 },
+  header: {
+    padding: 20,
+    gap: 8,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  title: { fontSize: 24, fontWeight: '700', color: '#1A1A1A', flex: 1 },
+  editButton: {
+    padding: 8,
+    marginLeft: 8,
+  },
   subtitle: { fontSize: 14, color: '#8E8E93' },
-  meta: { marginTop: 8, color: '#8E8E93' },
-  description: { marginTop: 10, color: '#1A1A1A' },
-  section: { marginTop: 16, gap: 8 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', marginBottom: 8 },
+  meta: { fontSize: 14, color: '#8E8E93' },
+  description: { marginTop: 6, fontSize: 15, color: '#1A1A1A', lineHeight: 22 },
+  pastBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FF9500',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    marginTop: 8,
+  },
+  pastBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  card: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 12,
+    marginBottom: 12,
+    padding: 20,
+    borderRadius: 12,
+    gap: 12,
+  },
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A1A' },
   optionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
   optionButton: {
-    padding: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 24,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
-    minWidth: '45%',
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: '45%',
     borderWidth: 2,
-    minHeight: 56,
   },
   optionLabel: { fontSize: 16, fontWeight: '600' },
-  addGuestButton: { marginTop: 10, padding: 12, backgroundColor: '#F5F5F5', borderRadius: 12, alignItems: 'center' },
+  addGuestButton: { padding: 12, backgroundColor: '#F5F5F5', borderRadius: 12, alignItems: 'center' },
   addGuestText: { color: '#007AFF', fontWeight: '600' },
   responseGroup: { marginTop: 12, backgroundColor: '#FFFFFF', padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#EFEFF4' },
   responseGroupHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
@@ -218,4 +326,5 @@ const styles = StyleSheet.create({
   color_blue: { backgroundColor: '#4aa3ff' },
   color_yellow: { backgroundColor: '#ffd166' },
   color_purple: { backgroundColor: '#b285ff' },
+  pastEventNotice: { fontSize: 14, color: '#FF9500', marginBottom: 8, fontStyle: 'italic' },
 });
