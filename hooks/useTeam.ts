@@ -17,13 +17,26 @@ export function useTeam(teamId: string | null) {
     setIsLoading(true);
     setError(null);
     try {
-      const [teamData, membersData] = await Promise.all([
-        teamsAPI.getTeam(teamId),
-        teamsAPI.getTeamMembers(teamId),
-      ]);
+      // Fetch team data first
+      const teamData = await teamsAPI.getTeam(teamId);
       setTeam(teamData);
-      setMembers(membersData);
+
+      // Always fetch members separately to ensure proper user expansion
+      // The expanded members from team might not have all user data populated
+      try {
+        const membersData = await teamsAPI.getTeamMembers(teamId);
+        setMembers(membersData);
+      } catch (memberErr: any) {
+        // If fetching members fails, try to use expanded data as fallback
+        console.warn('Failed to fetch members separately, using expanded data:', memberErr);
+        if (teamData.expand?.team_members_via_team) {
+          setMembers(teamData.expand.team_members_via_team);
+        } else {
+          throw memberErr;
+        }
+      }
     } catch (err: any) {
+      console.error('Error fetching team:', err);
       setError(err?.message || 'Nepodařilo se načíst tým');
     } finally {
       setIsLoading(false);

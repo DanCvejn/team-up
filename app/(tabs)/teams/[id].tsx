@@ -14,9 +14,12 @@ export default function TeamDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { user } = useAuth();
-  const { team, members, isLoading, removeMember, updateMemberRole } = useTeam(id);
+
+  // Ensure id is a string, not an array
+  const teamId = Array.isArray(id) ? id[0] : id;
+  const { team, members, isLoading, removeMember, updateMemberRole } = useTeam(teamId);
   const { deleteTeam } = useTeams();
-  const { events, createEvent } = useEvents(id);
+  const { events, createEvent } = useEvents(teamId);
 
   const [showSettings, setShowSettings] = useState(false);
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
@@ -54,7 +57,7 @@ export default function TeamDetailScreen() {
 
   const handleDeleteTeam = async () => {
     try {
-      await deleteTeam(id);
+      await deleteTeam(teamId);
       success('Úspěch', 'Tým byl smazán');
       router.dismiss();
     } catch (error: any) {
@@ -124,7 +127,7 @@ export default function TeamDetailScreen() {
         onCreate={async (data) => {
           try {
             await createEvent({
-              team: id,
+              team: teamId,
               title: data.name,
               date: data.date,
               location: data.location || '',

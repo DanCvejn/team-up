@@ -6,14 +6,25 @@ export const teamsAPI = {
    * Načti všechny týmy kde je user členem
    */
   async getMyTeams(): Promise<Team[]> {
-    const userId = pb.authStore.model?.id;
+    const userId = pb.authStore.record?.id;
     if (!userId) throw new Error('Not authenticated');
 
-    const teams = await pb.collection('teams').getFullList<Team>({
-      filter: pb.filter('team_members_via_team.user.id = {:userId}', { userId }),
-      expand: 'created_by,team_members_via_team.user',
-      sort: '-created',
+    // Get all team members for the current user
+    const members = await pb.collection('team_members').getFullList<TeamMember>({
+      filter: pb.filter('user = {:userId}', { userId }),
+      expand: 'team,team.created_by',
     });
+
+    // Extract unique teams and enrich with team members
+    const teamIds = [...new Set(members.map(m => m.team))];
+    const teams: Team[] = [];
+
+    for (const teamId of teamIds) {
+      const team = await pb.collection('teams').getOne<Team>(teamId, {
+        expand: 'created_by,team_members_via_team.user',
+      });
+      teams.push(team);
+    }
 
     return teams;
   },
@@ -22,10 +33,15 @@ export const teamsAPI = {
    * Detail týmu
    */
   async getTeam(teamId: string): Promise<Team> {
-    const team = await pb.collection('teams').getOne<Team>(teamId, {
-      expand: 'created_by,team_members_via_team.user',
-    });
-    return team;
+    try {
+      const team = await pb.collection('teams').getOne<Team>(teamId, {
+        expand: 'created_by',
+      });
+      return team;
+    } catch (error: any) {
+      console.error('teamsAPI.getTeam error:', error);
+      throw error;
+    }
   },
 
   /**
@@ -105,13 +121,29 @@ export const teamsAPI = {
    * Získej členy týmu
    */
   async getTeamMembers(teamId: string): Promise<TeamMember[]> {
-    const members = await pb.collection('team_members').getFullList<TeamMember>({
-      filter: pb.filter('team = {:teamId}', { teamId }),
-      expand: 'user',
-      sort: 'created',
-    });
-
-    return members;
+    console.log('teamsAPI.getTeamMembers called with teamId:', teamId);
+    console.log('Auth token exists:', !!pb.authStore.token);
+    try {
+      // Try using getList with explicit pagination instead of getFullList
+      const result = await pb.collection('team_members').getList<TeamMember>(1, 50, {
+        filter: `team = "${teamId}"`,
+        expand: 'user',
+        sort: 'created',
+      });
+      console.log('teamsAPI.getTeamMembers success, count:', result.items.length);
+      return result.items;
+    } catch (error: any) {
+      console.error('teamsAPI.getTeamMembers error:', error);
+      console.error('Error details:', {
+        url: error.url,
+        status: error.status,
+        response: error.response,
+        isAbort: error.isAbort,
+        originalError: error.originalError,
+        message: error.message,
+      });
+      throw error;
+    }
   },
 
   /**
