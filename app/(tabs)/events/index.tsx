@@ -2,8 +2,8 @@ import { EventCard } from '@/components/events/EventCard';
 import { useTeams } from '@/hooks';
 import { eventsAPI, responsesAPI } from '@/lib/api';
 import type { Event, EventResponse } from '@/lib/types';
-import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -13,21 +13,27 @@ import {
 } from 'react-native';
 
 export default function EventsListScreen() {
-  const { teams } = useTeams();
+  const { teams, isLoading: teamsLoading } = useTeams();
   const router = useRouter();
   const [events, setEvents] = useState<Event[]>([]);
   const [eventResponses, setEventResponses] = useState<Record<string, EventResponse[]>>({});
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const fetchAllEvents = async () => {
+  const fetchAllEvents = useCallback(async () => {
+    setIsLoadingEvents(true);
     try {
       // Načti akce ze všech týmů
       const allEvents: Event[] = [];
 
       for (const team of teams) {
-        const teamEvents = await eventsAPI.getTeamEvents(team.id);
-        allEvents.push(...teamEvents);
+        try {
+          const teamEvents = await eventsAPI.getTeamEvents(team.id);
+          allEvents.push(...teamEvents);
+        } catch (error) {
+          // Tiše ignoruj chyby u jednotlivých týmů - může se stát při hot reload
+          console.warn(`Skipping team ${team.id} due to error:`, error);
+        }
       }
 
       // Načti responses pro každou akci zvlášť
@@ -37,7 +43,7 @@ export default function EventsListScreen() {
           const responses = await responsesAPI.getEventResponses(event.id);
           responsesMap[event.id] = responses;
         } catch (error) {
-          console.error(`Failed to fetch responses for event ${event.id}:`, error);
+          // Tiché ignorování chyb - může se stát při hot reload
           responsesMap[event.id] = [];
         }
       }
@@ -50,33 +56,60 @@ export default function EventsListScreen() {
         return new Date(event.date) >= threeMonthsAgo;
       });
 
-      // Seřaď podle data (nejnovější první)
-      recentEvents.sort((a, b) =>
-        new Date(b.date).getTime() - new Date(a.date).getTime()
-      );
+      // Seřaď podle data - upcoming events soonest first, then past events most recent first
+      const now = new Date();
+      const upcoming = recentEvents.filter(e => new Date(e.date) >= now);
+      const past = recentEvents.filter(e => new Date(e.date) < now);
 
-      setEvents(recentEvents);
+      // Sort upcoming: soonest first (ascending)
+      upcoming.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+      // Sort past: most recent first (descending)
+      past.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+      // Combine: upcoming first, then past
+      const sortedEvents = [...upcoming, ...past];
+
+      setEvents(sortedEvents);
       setEventResponses(responsesMap);
     } catch (error) {
-      console.error('Failed to fetch events:', error);
+      console.warn('Failed to fetch events:', error);
     } finally {
-      setIsLoading(false);
+      setIsLoadingEvents(false);
       setIsRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    if (teams.length > 0) {
-      fetchAllEvents();
-    } else {
-      setIsLoading(false);
     }
   }, [teams]);
 
+  useEffect(() => {
+    if (teams.length > 0) {
+      fetchAllEvents().catch(err => {
+        // Tiše ignoruj chyby při initial load
+        console.warn('Error loading events:', err);
+      });
+    }
+  }, [teams]);
+
+  // Refresh events when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      if (teams.length > 0) {
+        fetchAllEvents().catch(err => {
+          // Tiše ignoruj chyby při focus refresh
+          console.warn('Error refreshing events on focus:', err);
+        });
+      }
+    }, [teams, fetchAllEvents])
+  );
+
   const onRefresh = () => {
     setIsRefreshing(true);
-    fetchAllEvents();
+    fetchAllEvents().catch(err => {
+      console.warn('Error refreshing events:', err);
+    });
   };
+
+  // Show loading spinner if teams or events are loading
+  const isLoading = teamsLoading || isLoadingEvents;
 
   if (isLoading) {
     return (

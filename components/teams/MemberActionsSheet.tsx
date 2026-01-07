@@ -25,12 +25,12 @@ export function MemberActionsSheet({
   onChangeRole,
   onRemoveMember,
 }: MemberActionsSheetProps) {
+  const { confirm } = useAlert();
+
   if (!member) return null;
 
   const isAdmin = member.role === 'admin';
   const memberName = member.expand?.user?.name || 'Člen';
-
-  const { confirm } = useAlert();
 
   const handleChangeRole = async () => {
     const newRole = isAdmin ? 'member' : 'admin';

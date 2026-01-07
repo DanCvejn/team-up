@@ -14,7 +14,13 @@ export function useTeams() {
       const data = await teamsAPI.getMyTeams();
       setTeams(data);
     } catch (err: any) {
-      setError(err?.message || 'Nepodařilo se načíst týmy');
+      // Ignoruj chyby s status 0 (hot reload)
+      if (err?.status === 0) {
+        console.warn('Hot reload error in fetchTeams, ignoring...');
+        setError(null);
+      } else {
+        setError(err?.message || 'Nepodařilo se načíst týmy');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -87,6 +93,19 @@ export function useTeams() {
     }
   }, []);
 
+  const regenerateInviteCode = useCallback(async (teamId: string) => {
+    setError(null);
+    try {
+      const updated = await teamsAPI.regenerateInviteCode(teamId);
+      setTeams(prev => prev.map(t => (t.id === teamId ? updated : t)));
+      return updated;
+    } catch (err: any) {
+      const errorMsg = err?.message || 'Nepodařilo se regenerovat kód';
+      setError(errorMsg);
+      throw new Error(errorMsg);
+    }
+  }, []);
+
   return {
     teams,
     isLoading,
@@ -97,5 +116,6 @@ export function useTeams() {
     deleteTeam,
     joinTeam,
     leaveTeam,
+    regenerateInviteCode,
   };
 }

@@ -15,13 +15,13 @@ export const eventsAPI = {
 
       return events;
     } catch (error: any) {
-      console.error('Error fetching team events:', error);
-      console.error('Error details:', { status: error?.status, message: error?.message, data: error?.data });
-      // Pokud je to 404 nebo prázdný výsledek, vrať prázdné pole
-      if (error?.status === 404 || error?.status === 0) {
-        return [];
+      // Pouze varování pro status 0 (hot reload), error pro ostatní
+      if (error?.status === 0) {
+        console.warn('Hot reload error fetching team events:', error);
+      } else {
+        console.warn('Error fetching team events:', error);
       }
-      // Vrať prázdné pole i pro jiné chyby, aby to nezrušilo celý detail týmu
+      // Vrať prázdné pole pro všechny chyby
       return [];
     }
   },
@@ -30,10 +30,20 @@ export const eventsAPI = {
    * Detail akce
    */
   async getEvent(eventId: string): Promise<Event> {
-    const event = await pb.collection('events').getOne<Event>(eventId, {
-      expand: 'created_by,team',
-    });
-    return event;
+    try {
+      const event = await pb.collection('events').getOne<Event>(eventId, {
+        expand: 'created_by,team',
+      });
+      return event;
+    } catch (error: any) {
+      // Pouze varování místo error
+      if (error?.status === 0) {
+        console.warn('Hot reload error in getEvent');
+      } else {
+        console.warn('Error fetching event detail:', error);
+      }
+      throw error; // Přehoď chybu dál, aby ji mohl zpracovat hook
+    }
   },
 
   /**

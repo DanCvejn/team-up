@@ -1,5 +1,6 @@
 import { useAlert } from '@/hooks';
 import type { Team } from '@/lib/types';
+import { Plurals } from '@/lib/utils';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useState } from 'react';
@@ -11,6 +12,7 @@ interface TeamDetailHeaderProps {
   isAdmin: boolean;
   onSettingsPress: () => void;
   onShowAllEvents?: () => void;
+  onRegenerateCode?: () => void;
 }
 
 export function TeamDetailHeader({
@@ -18,7 +20,8 @@ export function TeamDetailHeader({
   memberCount,
   isAdmin,
   onSettingsPress,
-  onShowAllEvents
+  onShowAllEvents,
+  onRegenerateCode
 }: TeamDetailHeaderProps) {
   const [showCode, setShowCode] = useState(false);
 
@@ -45,7 +48,7 @@ export function TeamDetailHeader({
       <View style={styles.header}>
         <View style={styles.info}>
           <Text style={styles.name}>{team.name}</Text>
-          <Text style={styles.memberCount}>{memberCount} členů</Text>
+          <Text style={styles.memberCount}>{Plurals.member(memberCount)}</Text>
         </View>
         {isAdmin && (
           <TouchableOpacity style={styles.settingsButton} onPress={onSettingsPress}>
@@ -73,17 +76,25 @@ export function TeamDetailHeader({
         </View>
 
         {showCode ? (
-          <View style={styles.codeActions}>
-            <View style={styles.codeBox}>
-              <Text style={styles.codeText}>{team.invite_code}</Text>
+          <>
+            <View style={styles.codeActions}>
+              <View style={styles.codeBox}>
+                <Text style={styles.codeText}>{team.invite_code}</Text>
+              </View>
+              <TouchableOpacity style={styles.iconButton} onPress={handleCopyCode}>
+                <Ionicons name="copy-outline" size={20} color="#007AFF" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.iconButton} onPress={handleShareCode}>
+                <Ionicons name="share-outline" size={20} color="#007AFF" />
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity style={styles.iconButton} onPress={handleCopyCode}>
-              <Ionicons name="copy-outline" size={20} color="#007AFF" />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.iconButton} onPress={handleShareCode}>
-              <Ionicons name="share-outline" size={20} color="#007AFF" />
-            </TouchableOpacity>
-          </View>
+            {isAdmin && onRegenerateCode && (
+              <TouchableOpacity style={styles.regenerateButton} onPress={onRegenerateCode}>
+                <Ionicons name="refresh-outline" size={16} color="#007AFF" />
+                <Text style={styles.regenerateText}>Vygenerovat nový kód</Text>
+              </TouchableOpacity>
+            )}
+          </>
         ) : ""}
       </View>
 
@@ -184,6 +195,20 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  regenerateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#FFFFFF',
+    padding: 10,
+    borderRadius: 8,
+  },
+  regenerateText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#007AFF',
   },
   showAllEventsButton: {
     flexDirection: 'row',

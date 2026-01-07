@@ -71,25 +71,29 @@ Poslední update: 2026-01-05 (pozdní večer)
 ## 🔨 Potřeba dodělat
 
 ### **1. Teams funkčnost**
-- ⏳ Edit Team Modal
-  - UI komponenta neexistuje
-  - API `updateTeam` je hotové v useTeams.ts
-  - Propojit v TeamSettingsSheet (má TODO komentář)
-- ⏳ Leave Team implementace
-  - API call existuje v useTeams.ts
-  - UI tlačítko/akce chybí v TeamSettingsSheet
-  - Kontrola jestli není jediný admin (TODO: `teams/[id].tsx:47`)
-- ⏳ Delete Team implementace
-  - API call existuje v useTeams.ts
-  - UI tlačítko/akce chybí v TeamSettingsSheet
-  - Cascade delete všech dat (ověřit že PocketBase dělá správně)
-- ⏳ Regenerace invite kódu
-  - Není implementováno ani v API ani v UI
+- ✅ Edit Team Modal
+  - ✅ UI komponenta vytvořena (EditTeamModal.tsx)
+  - ✅ API `updateTeam` je hotové v useTeams.ts
+  - ✅ Propojeno v TeamSettingsSheet
+  - ✅ Opraveny PocketBase API rules pro team_members a users collections
+- ✅ Leave Team implementace
+  - ✅ API call existuje v useTeams.ts
+  - ✅ UI tlačítko/akce propojeno v TeamSettingsSheet
+  - ✅ Kontrola jestli není jediný admin (zobrazí error pokud ano)
+- ✅ Delete Team implementace
+  - ✅ API call existuje v useTeams.ts
+  - ✅ UI tlačítko/akce je v TeamSettingsSheet a implementováno
+  - ⏳ Cascade delete všech dat (ověřit že PocketBase dělá správně)
+- ✅ Regenerace invite kódu
+  - ✅ API implementováno v teamsAPI.regenerateInviteCode
+  - ✅ Propojeno v useTeams hook
+  - ✅ UI tlačítko v TeamDetailHeader (viditelné jen pro adminy když je kód zobrazen)
 
 ### **2. Events funkčnost**
-- ⏳ Delete Event
-  - API `deleteEvent` existuje v useEvents.ts
-  - UI tlačítko/akce chybí v Event Detail
+- ✅ Delete Event
+  - ✅ API `deleteEvent` přidáno do useEvent.ts
+  - ✅ UI tlačítko (červený koš) přidáno vedle edit tlačítka v Event Detail
+  - ✅ Viditelné jen pro tvůrce nebo team admina
 - ⏳ Automatický posun náhradníků při uvolnění místa
   - Logika pro capacity counting existuje
   - Není jasné jestli funguje automatický posun z waitlist
@@ -149,6 +153,48 @@ Poslední update: 2026-01-05 (pozdní večer)
 - ⏳ Accessibility (a11y)
 
 ---
+
+---
+
+## 📝 Changelog - 2026-01-07
+
+### ✅ Implementováno dnes (část 1):
+1. **PocketBase API rules fix:**
+   - Opraveny `listRule` a `viewRule` pro `users` collection (umožnění zobrazení členů týmu)
+   - Opraveny `listRule` a `viewRule` pro `team_members` collection (umožnění zobrazení všech členů týmu)
+   - **Fix zásadního bugu:** Team detail nyní správně zobrazuje všechny členy týmu s jejich jmény a emaily
+
+2. **Edit Team funkčnost:**
+   - Vytvořena komponenta `EditTeamModal.tsx` (v `components/teams/`)
+   - Propojeno s `TeamSettingsSheet` - tlačítko "Upravit tým" nyní funguje
+   - Implementována funkce `handleUpdateTeam` v team detail screen
+   - Modal se předvyplní aktuálními údaji týmu (název, popis)
+   - Po uložení se data refreshnou a zobrazí success zpráva
+
+### ✅ Implementováno dnes (část 2 - high priority features):
+3. **Leave Team funkčnost:**
+   - Implementována funkce `handleLeaveTeam` v team detail screen
+   - Přidána validace - uživatel nemůže opustit tým pokud je jediný admin
+   - Zobrazí chybovou hlášku s instrukcemi pokud je jediný admin
+   - Po úspěšném opuštění týmu přesměruje zpět na seznam týmů
+
+4. **Delete Event funkčnost:**
+   - Přidána funkce `deleteEvent` do `useEvent` hooku
+   - Přidáno červené tlačítko koše vedle edit tlačítka v Event Detail
+   - Viditelné jen pro tvůrce události nebo team admina
+   - Po smazání přesměruje zpět na předchozí obrazovku
+
+5. **Regenerate Invite Code funkčnost:**
+   - Implementována API funkce `regenerateInviteCode` v `teamsAPI`
+   - Přidána do `useTeams` hooku
+   - Přidáno tlačítko "Vygenerovat nový kód" v TeamDetailHeader
+   - Viditelné jen pro adminy když je pozvánkový kód zobrazen
+   - Po regeneraci se zobrazí success zpráva a data se refreshnou
+
+### ⚠️ Opravené problémy:
+- ✅ Bug s nezobrazováním členů týmu v team detail
+  - Příčina: Restriktivní PocketBase API rules pro collections `users` a `team_members`
+  - Řešení: Upraveny rules, aby umožňovaly zobrazení členů stejného týmu
 
 ---
 

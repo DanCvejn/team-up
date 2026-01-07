@@ -42,9 +42,6 @@ export function TeamMembersList({
                   <Text style={styles.youBadge}> (Ty)</Text>
                 )}
               </Text>
-              <Text style={styles.memberEmail}>
-                {item.expand?.user?.email}
-              </Text>
             </View>
 
             <View style={[
@@ -108,16 +105,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#1A1A1A',
-    marginBottom: 2,
   },
   youBadge: {
     fontSize: 14,
     fontWeight: '500',
     color: '#007AFF',
-  },
-  memberEmail: {
-    fontSize: 14,
-    color: '#8E8E93',
   },
   roleBadge: {
     paddingHorizontal: 12,

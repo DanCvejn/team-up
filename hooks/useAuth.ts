@@ -69,6 +69,17 @@ export function useAuth() {
     setUser(null);
   }, []);
 
+  const refreshUser = useCallback(async () => {
+    try {
+      const refreshedUser = await authAPI.refresh();
+      setUser(refreshedUser);
+      return refreshedUser;
+    } catch (err: any) {
+      console.warn('Failed to refresh user:', err);
+      throw err;
+    }
+  }, []);
+
   return {
     user,
     isAuthenticated: !!user,
@@ -77,5 +88,6 @@ export function useAuth() {
     register,
     login,
     logout,
+    refreshUser,
   };
 }

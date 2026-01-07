@@ -2,15 +2,16 @@ import Modal from '@/components/common/Modal';
 import { EditEventModal } from '@/components/events/EditEventModal';
 import { useAlert, useAuth, useEvent, useTeam } from '@/hooks';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function EventDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { event, responses, isLoading, setMyResponse, addGuest, deleteResponse, updateEvent } = useEvent(id);
+  const router = useRouter();
+  const { event, responses, isLoading, setMyResponse, addGuest, deleteResponse, updateEvent, deleteEvent } = useEvent(id);
   const { user } = useAuth();
-  const { success, error: showError } = useAlert();
+  const { success, error: showError, confirm } = useAlert();
 
   // Get team members to check if user is admin
   const teamId = event?.team;
@@ -55,11 +56,32 @@ export default function EventDetailScreen() {
   // Check if event is in the past
   const isPastEvent = new Date(event.date) < new Date();
 
-  // Check if user can edit (creator or team admin)
+  // Check if user can edit (creator or team admin, and event hasn't passed)
   const isCreator = event.created_by === user?.id;
   const currentMember = members.find(m => m.user === user?.id);
   const isTeamAdmin = currentMember?.role === 'admin';
-  const canEdit = isCreator || isTeamAdmin;
+  const canEdit = !isPastEvent && (isCreator || isTeamAdmin);
+
+  const handleDeleteEvent = async () => {
+    try {
+      if (!event?.id) return;
+
+      const ok = await confirm(
+        'Smazat akci',
+        `Opravdu chceš akci "${event.title}" trvale smazat? Tato akce je nevratná.`,
+        'Smazat',
+        'Zrušit'
+      );
+
+      if (!ok) return;
+
+      await deleteEvent(event.id);
+      success('Úspěch', 'Akce byla smazána');
+      router.back();
+    } catch (error: any) {
+      showError('Chyba', error.message);
+    }
+  };
 
   return (
     <>
@@ -69,12 +91,20 @@ export default function EventDetailScreen() {
         <View style={styles.titleRow}>
           <Text style={styles.title}>{event.title}</Text>
           {canEdit && (
-            <TouchableOpacity
-              onPress={() => setShowEditModal(true)}
-              style={styles.editButton}
-            >
-              <Ionicons name="create-outline" size={24} color="#007AFF" />
-            </TouchableOpacity>
+            <View style={styles.actionButtons}>
+              <TouchableOpacity
+                onPress={() => setShowEditModal(true)}
+                style={styles.iconButton}
+              >
+                <Ionicons name="create-outline" size={24} color="#007AFF" />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={handleDeleteEvent}
+                style={styles.iconButton}
+              >
+                <Ionicons name="trash-outline" size={24} color="#FF3B30" />
+              </TouchableOpacity>
+            </View>
           )}
         </View>
         <View style={styles.headerRow}>
@@ -263,6 +293,13 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   title: { fontSize: 24, fontWeight: '700', color: '#1A1A1A', flex: 1 },
+  actionButtons: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  iconButton: {
+    padding: 8,
+  },
   editButton: {
     padding: 8,
     marginLeft: 8,

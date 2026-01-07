@@ -17,14 +17,26 @@ export function useEvent(eventId: string | null) {
     setIsLoading(true);
     setError(null);
     try {
-      const [eventData, responsesData] = await Promise.all([
-        eventsAPI.getEvent(eventId),
-        responsesAPI.getEventResponses(eventId),
-      ]);
+      // Načti event a responses odděleně pro lepší error handling
+      const eventData = await eventsAPI.getEvent(eventId);
       setEvent(eventData);
-      setResponses(responsesData);
+
+      // Responses načti odděleně - pokud selžou, nezastaví to celou stránku
+      try {
+        const responsesData = await responsesAPI.getEventResponses(eventId);
+        setResponses(responsesData);
+      } catch (respErr) {
+        console.warn('Failed to fetch responses, using empty array:', respErr);
+        setResponses([]);
+      }
     } catch (err: any) {
-      setError(err?.message || 'Nepodařilo se načíst akci');
+      // Ignoruj chyby s status 0 (hot reload)
+      if (err?.status === 0) {
+        console.warn('Hot reload error, ignoring...');
+        setError(null);
+      } else {
+        setError(err?.message || 'Nepodařilo se načíst akci');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -46,14 +58,22 @@ export function useEvent(eventId: string | null) {
       setEvent(updated);
     }).then((unsub) => {
       unsubEvent = unsub;
+    }).catch((err) => {
+      // Tiše ignoruj chyby v realtime subscription
+      console.warn('Failed to subscribe to event:', err);
     });
 
     // Subscribe na změny odpovědí
     responsesAPI.subscribeToResponses(eventId, () => {
       // Re-fetch responses když se něco změní
-      responsesAPI.getEventResponses(eventId).then(setResponses);
+      responsesAPI.getEventResponses(eventId).then(setResponses).catch(err => {
+        console.warn('Failed to refetch responses:', err);
+      });
     }).then((unsub) => {
       unsubResponses = unsub;
+    }).catch((err) => {
+      // Tiše ignoruj chyby v realtime subscription
+      console.warn('Failed to subscribe to responses:', err);
     });
 
     return () => {
@@ -119,6 +139,17 @@ export function useEvent(eventId: string | null) {
     }
   }, []);
 
+  const deleteEvent = useCallback(async (eventId: string) => {
+    setError(null);
+    try {
+      await eventsAPI.deleteEvent(eventId);
+    } catch (err: any) {
+      const errorMsg = err?.message || 'Nepodařilo se smazat událost';
+      setError(errorMsg);
+      throw new Error(errorMsg);
+    }
+  }, []);
+
   // Helper: spočítej potvrzené
   const getConfirmedCount = useCallback(() => {
     if (!event) return 0;
@@ -164,6 +195,7 @@ export function useEvent(eventId: string | null) {
     addGuest,
     deleteResponse,
     updateEvent,
+    deleteEvent,
     getConfirmedCount,
     getSortedResponses,
   };

@@ -28,7 +28,7 @@ export default function LoginScreen() {
 
     try {
       await login(email, password);
-      router.replace('/(tabs)/teams');
+      router.replace('/(tabs)/events');
     } catch (error: any) {
       showError('Chyba přihlášení', error.message);
     }

@@ -19,7 +19,10 @@ export default function TeamsListScreen() {
 
   useFocusEffect(
     useCallback(() => {
-      fetchTeams();
+      fetchTeams().catch(err => {
+        // Tiše ignoruj chyby při focus refresh
+        console.warn('Error refreshing teams on focus:', err);
+      });
     }, [fetchTeams])
   );
   const { success } = useAlert();

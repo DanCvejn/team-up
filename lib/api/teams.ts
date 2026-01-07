@@ -6,27 +6,46 @@ export const teamsAPI = {
    * Načti všechny týmy kde je user členem
    */
   async getMyTeams(): Promise<Team[]> {
-    const userId = pb.authStore.record?.id;
-    if (!userId) throw new Error('Not authenticated');
+    try {
+      const userId = pb.authStore.record?.id;
+      if (!userId) throw new Error('Not authenticated');
 
-    // Get all team members for the current user
-    const members = await pb.collection('team_members').getFullList<TeamMember>({
-      filter: pb.filter('user = {:userId}', { userId }),
-      expand: 'team,team.created_by',
-    });
-
-    // Extract unique teams and enrich with team members
-    const teamIds = [...new Set(members.map(m => m.team))];
-    const teams: Team[] = [];
-
-    for (const teamId of teamIds) {
-      const team = await pb.collection('teams').getOne<Team>(teamId, {
-        expand: 'created_by,team_members_via_team.user',
+      // Get all team members for the current user
+      const members = await pb.collection('team_members').getFullList<TeamMember>({
+        filter: pb.filter('user = {:userId}', { userId }),
+        expand: 'team,team.created_by',
       });
-      teams.push(team);
-    }
 
-    return teams;
+      // Extract unique teams and enrich with team members
+      const teamIds = [...new Set(members.map(m => m.team))];
+      const teams: Team[] = [];
+
+      for (const teamId of teamIds) {
+        try {
+          const team = await pb.collection('teams').getOne<Team>(teamId, {
+            expand: 'created_by,team_members_via_team.user',
+          });
+          teams.push(team);
+        } catch (teamErr: any) {
+          // Ignoruj chyby pro jednotlivé týmy
+          if (teamErr?.status === 0) {
+            console.warn(`Hot reload error fetching team ${teamId}`);
+          } else {
+            console.warn(`Error fetching team ${teamId}:`, teamErr);
+          }
+        }
+      }
+
+      return teams;
+    } catch (error: any) {
+      // Při status 0 (hot reload) vrať prázdné pole
+      if (error?.status === 0) {
+        console.warn('Hot reload error in getMyTeams');
+        return [];
+      }
+      console.warn('Error in getMyTeams:', error);
+      throw error;
+    }
   },
 
   /**
@@ -39,7 +58,12 @@ export const teamsAPI = {
       });
       return team;
     } catch (error: any) {
-      console.error('teamsAPI.getTeam error:', error);
+      // Tiše ignoruj chyby s status 0 (hot reload)
+      if (error?.status === 0) {
+        console.warn('Hot reload error in getTeam, rethrowing...');
+      } else {
+        console.warn('teamsAPI.getTeam error:', error);
+      }
       throw error;
     }
   },
@@ -121,27 +145,20 @@ export const teamsAPI = {
    * Získej členy týmu
    */
   async getTeamMembers(teamId: string): Promise<TeamMember[]> {
-    console.log('teamsAPI.getTeamMembers called with teamId:', teamId);
-    console.log('Auth token exists:', !!pb.authStore.token);
     try {
-      // Try using getList with explicit pagination instead of getFullList
-      const result = await pb.collection('team_members').getList<TeamMember>(1, 50, {
+      const result = await pb.collection('team_members').getFullList<TeamMember>({
         filter: `team = "${teamId}"`,
         expand: 'user',
         sort: 'created',
       });
-      console.log('teamsAPI.getTeamMembers success, count:', result.items.length);
-      return result.items;
+      return result;
     } catch (error: any) {
-      console.error('teamsAPI.getTeamMembers error:', error);
-      console.error('Error details:', {
-        url: error.url,
-        status: error.status,
-        response: error.response,
-        isAbort: error.isAbort,
-        originalError: error.originalError,
-        message: error.message,
-      });
+      // Tiše ignoruj chyby s status 0 (hot reload)
+      if (error?.status === 0) {
+        console.warn('Hot reload error in getTeamMembers');
+        return []; // Vrať prázdné pole při hot reload
+      }
+      console.warn('teamsAPI.getTeamMembers error:', error);
       throw error;
     }
   },
@@ -164,6 +181,17 @@ export const teamsAPI = {
       role,
     });
     return member;
+  },
+
+  /**
+   * Regeneruj invite code týmu
+   */
+  async regenerateInviteCode(teamId: string): Promise<Team> {
+    const newInviteCode = generateInviteCode();
+    const team = await pb.collection('teams').update<Team>(teamId, {
+      invite_code: newInviteCode,
+    });
+    return team;
   },
 };
 

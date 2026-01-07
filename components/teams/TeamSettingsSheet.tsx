@@ -9,6 +9,7 @@ interface TeamSettingsSheetProps {
   onClose: () => void;
   team: Team;
   isCreator: boolean;
+  canLeave: boolean;
   onEditTeam: () => void;
   onLeaveTeam: () => void;
   onDeleteTeam: () => void;
@@ -19,6 +20,7 @@ export function TeamSettingsSheet({
   onClose,
   team,
   isCreator,
+  canLeave,
   onEditTeam,
   onLeaveTeam,
   onDeleteTeam,
@@ -85,7 +87,7 @@ export function TeamSettingsSheet({
         <Text style={styles.sectionTitle}>Nebezpečná zóna</Text>
 
         {/* Leave Team */}
-        {!isCreator && (
+        {canLeave && (
           <TouchableOpacity style={styles.item} onPress={handleLeave}>
             <View style={[styles.itemIcon, styles.itemIconDanger]}>
               <Ionicons name="exit-outline" size={20} color="#FF3B30" />

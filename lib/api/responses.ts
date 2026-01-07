@@ -63,13 +63,22 @@ export const responsesAPI = {
    * Načti odpovědi akce
    */
   async getEventResponses(eventId: string): Promise<EventResponse[]> {
-    const responses = await pb.collection('event_responses').getFullList<EventResponse>({
-      filter: pb.filter('event = {:eventId}', { eventId }),
-      expand: 'user,added_by',
-      sort: '-updated',
-    });
+    try {
+      const responses = await pb.collection('event_responses').getFullList<EventResponse>({
+        filter: pb.filter('event = {:eventId}', { eventId }),
+        expand: 'user,added_by',
+        sort: '-updated',
+      });
 
-    return responses;
+      return responses;
+    } catch (error: any) {
+      console.warn('Error fetching event responses:', error);
+      // Při chybě vrať prázdné pole místo vyhození chyby
+      if (error?.status === 404 || error?.status === 0) {
+        return [];
+      }
+      return [];
+    }
   },
 
   /**

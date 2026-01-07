@@ -31,13 +31,23 @@ export function useTeam(teamId: string | null) {
         console.warn('Failed to fetch members separately, using expanded data:', memberErr);
         if (teamData.expand?.team_members_via_team) {
           setMembers(teamData.expand.team_members_via_team);
+        } else if (memberErr?.status === 0) {
+          // Při hot reload nastav prázdné pole místo vyhození chyby
+          console.warn('Hot reload error in fetchTeam, using empty members array');
+          setMembers([]);
         } else {
           throw memberErr;
         }
       }
     } catch (err: any) {
-      console.error('Error fetching team:', err);
-      setError(err?.message || 'Nepodařilo se načíst tým');
+      // Ignoruj chyby s status 0 (hot reload)
+      if (err?.status === 0) {
+        console.warn('Hot reload error in fetchTeam, ignoring...');
+        setError(null);
+      } else {
+        console.warn('Error fetching team:', err);
+        setError(err?.message || 'Nepodařilo se načíst tým');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -66,12 +76,16 @@ export function useTeam(teamId: string | null) {
     setError(null);
     try {
       const updated = await teamsAPI.updateMemberRole(memberId, role);
-      setMembers(prev => prev.map(m => m.id === memberId ? updated : m));
+      setMembers(prev => prev.map(m => m.id === memberId ? {...updated, expand: { user: m.expand?.user }} : m));
     } catch (err: any) {
       const errorMsg = err?.message || 'Nepodařilo se změnit roli';
       setError(errorMsg);
       throw new Error(errorMsg);
     }
+  }, []);
+
+  const updateTeamState = useCallback((updatedTeam: Partial<Team>) => {
+    setTeam(prev => prev ? { ...prev, ...updatedTeam } : null);
   }, []);
 
   return {
@@ -82,5 +96,6 @@ export function useTeam(teamId: string | null) {
     fetchTeam,
     removeMember,
     updateMemberRole,
+    updateTeamState,
   };
 }

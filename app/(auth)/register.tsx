@@ -49,7 +49,7 @@ export default function RegisterScreen() {
 
     try {
       await register(email, password, name);
-      router.replace('/(tabs)/teams');
+      router.replace('/(tabs)/events');
     } catch (error: any) {
       showError('Chyba registrace', error.message);
     }

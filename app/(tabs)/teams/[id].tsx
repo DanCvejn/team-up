@@ -1,5 +1,6 @@
 import Modal from '@/components/common/Modal';
 import { CreateEventModal } from '@/components/events/CreateEventModal';
+import { EditTeamModal } from '@/components/teams/EditTeamModal';
 import { MemberActionsSheet } from '@/components/teams/MemberActionsSheet';
 import { TeamDetailHeader } from '@/components/teams/TeamDetailHeader';
 import { TeamEventsList } from '@/components/teams/TeamEventsList';
@@ -8,8 +9,8 @@ import { TeamSettingsSheet } from '@/components/teams/TeamSettingsSheet';
 import { useAlert, useAuth, useEvents, useTeam, useTeams } from '@/hooks';
 import type { TeamMember } from '@/lib/types';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function TeamDetailScreen() {
@@ -19,11 +20,22 @@ export default function TeamDetailScreen() {
 
   // Ensure id is a string, not an array
   const teamId = Array.isArray(id) ? id[0] : id;
-  const { team, members, isLoading, removeMember, updateMemberRole } = useTeam(teamId);
-  const { deleteTeam } = useTeams();
-  const { events, createEvent } = useEvents(teamId);
+  const { team, members, isLoading, removeMember, updateMemberRole, fetchTeam, updateTeamState } = useTeam(teamId);
+  const { deleteTeam, updateTeam, leaveTeam, regenerateInviteCode } = useTeams();
+  const { events, createEvent, fetchEvents } = useEvents(teamId);
+
+  // Refresh events when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      fetchEvents().catch(err => {
+        // Tiše ignoruj chyby při focus refresh
+        console.warn('Error refreshing events on focus:', err);
+      });
+    }, [fetchEvents])
+  );
 
   const [showSettings, setShowSettings] = useState(false);
+  const [showEditTeam, setShowEditTeam] = useState(false);
   const [selectedMember, setSelectedMember] = useState<TeamMember | null>(null);
   const [showCreateEvent, setShowCreateEvent] = useState(false);
   const [showAllEvents, setShowAllEvents] = useState(false);
@@ -46,13 +58,22 @@ export default function TeamDetailScreen() {
   const isAdmin = currentMember?.role === 'admin';
   const isCreator = team.created_by === user?.id;
 
-  // (hook already declared above)
+  // Calculate if user can leave - they can leave if there are multiple admins OR if they're not an admin
+  const adminCount = members.filter(m => m.role === 'admin').length;
+  const canLeave = !isAdmin || adminCount > 1;
 
   const handleLeaveTeam = async () => {
     try {
-      // TODO: Implement leave team (leave team)
+      // Check if user is the last admin
+      const adminCount = members.filter(m => m.role === 'admin').length;
+      if (isAdmin && adminCount === 1) {
+        showError('Chyba', 'Nemůžeš opustit tým jako poslední admin. Nejprve jmenuj jiného admina nebo smaž tým.');
+        return;
+      }
+
+      await leaveTeam(teamId);
       success('Úspěch', 'Opustil jsi tým');
-      router.dismiss();
+      router.back();
     } catch (error: any) {
       showError('Chyba', error.message);
     }
@@ -86,6 +107,26 @@ export default function TeamDetailScreen() {
     }
   };
 
+  const handleUpdateTeam = async (data: { name: string; description?: string }) => {
+    try {
+      await updateTeam(teamId, data);
+      await fetchTeam();
+      success('Úspěch', 'Tým byl aktualizován');
+    } catch (error: any) {
+      showError('Chyba', error.message);
+    }
+  };
+
+  const handleRegenerateCode = async () => {
+    try {
+      const updatedTeam = await regenerateInviteCode(teamId);
+      updateTeamState({ invite_code: updatedTeam.invite_code });
+      success('Úspěch', 'Nový pozvánkový kód byl vygenerován');
+    } catch (error: any) {
+      showError('Chyba', error.message);
+    }
+  };
+
   return (
     <>
       <ScrollView style={styles.container}>
@@ -95,6 +136,7 @@ export default function TeamDetailScreen() {
           isAdmin={isAdmin}
           onSettingsPress={() => setShowSettings(true)}
           onShowAllEvents={() => setShowAllEvents(true)}
+          onRegenerateCode={handleRegenerateCode}
         />
 
         <TeamEventsList
@@ -119,11 +161,20 @@ export default function TeamDetailScreen() {
         onClose={() => setShowSettings(false)}
         team={team}
         isCreator={isCreator}
+        canLeave={canLeave}
         onEditTeam={() => {
-          // TODO: Navigate to edit team
+          setShowSettings(false);
+          setShowEditTeam(true);
         }}
         onLeaveTeam={handleLeaveTeam}
         onDeleteTeam={handleDeleteTeam}
+      />
+
+      <EditTeamModal
+        visible={showEditTeam}
+        onClose={() => setShowEditTeam(false)}
+        onUpdate={handleUpdateTeam}
+        team={team}
       />
 
       <CreateEventModal
@@ -156,7 +207,6 @@ export default function TeamDetailScreen() {
         onRemoveMember={handleRemoveMember}
       />
 
-      {/* All Events Modal */}
       <Modal
         title="Všechny akce"
         visible={showAllEvents}
