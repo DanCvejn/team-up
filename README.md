@@ -1,50 +1,107 @@
-# Welcome to your Expo app 👋
+# Team Up
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+Mobilní aplikace pro správu týmů a organizaci společných akcí, vytvořená pomocí React Native a Expo.
 
-## Get started
+## Popis aplikace
 
-1. Install dependencies
+Team Up je aplikace, která umožňuje uživatelům:
 
-   ```bash
-   npm install
-   ```
+- Vytvářet a spravovat týmy
+- Připojovat se k existujícím týmům pomocí pozvánek
+- Organizovat a plánovat týmové akce
+- Sledovat účast členů na akcích
+- Spravovat členství v týmech
+- Zobrazovat nadcházející i proběhlé akce
 
-2. Start the app
+Aplikace využívá PocketBase jako backend pro autentizaci uživatelů a ukládání dat v reálném čase.
 
-   ```bash
-   npx expo start
-   ```
+## Požadavky
 
-In the output, you'll find options to open the app in a
+- Node.js (verze 18 nebo vyšší)
+- npm nebo yarn
+- Expo CLI
+- PocketBase server
+- Mobilní zařízení s aplikací Expo Go nebo emulátor Android/iOS
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+## Instalace a spuštění
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+### 1. Naklonování repozitáře
 
 ```bash
-npm run reset-project
+git clone https://github.com/DanCvejn/event-finder.git
+cd team-up
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### 2. Instalace závislostí
 
-## Learn more
+```bash
+npm install
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+### 3. Konfigurace PocketBase
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Aplikace vyžaduje běžící PocketBase server. URL serveru je nakonfigurována v souboru `lib/api/client.ts`.
 
-## Join the community
+Výchozí konfigurace:
+- Vývojové prostředí: `http://10.0.2.2:8090` (Android emulátor)
+- Produkční prostředí: nahraď vlastní URL
 
-Join our community of developers creating universal apps.
+### 4. Spuštění aplikace
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+```bash
+npx expo start
+```
+
+Po spuštění můžeš aplikaci otevřít:
+
+- **Android**: Naskenuj QR kód aplikací Expo Go nebo stiskni `a` pro spuštění v Android emulátoru
+- **iOS**: Naskenuj QR kód aplikací Expo Go nebo stiskni `i` pro spuštění v iOS simulátoru
+- **Web**: Stiskni `w` pro spuštění ve webovém prohlížeči
+
+## Struktura projektu
+
+```
+team-up/
+├── app/                    # Obrazovky a routing (Expo Router)
+│   ├── (auth)/            # Autentizační obrazovky (login, register)
+│   ├── (tabs)/            # Hlavní záložky aplikace
+│   │   ├── events/        # Seznam a detail akcí
+│   │   ├── teams/         # Seznam a detail týmů
+│   │   └── profile.tsx    # Uživatelský profil
+│   └── _layout.tsx        # Root layout
+├── components/            # Znovupoužitelné komponenty
+│   ├── common/           # Společné UI komponenty
+│   ├── events/           # Komponenty pro akce
+│   └── teams/            # Komponenty pro týmy
+├── hooks/                # Custom React hooks
+├── lib/                  # Knihovny a utility
+│   ├── api/             # API klienti a endpointy
+│   └── types/           # TypeScript definice
+└── assets/              # Obrázky, fonty a další statické soubory
+```
+
+## Technologie
+
+- **React Native** - Framework pro vývoj mobilních aplikací
+- **Expo** - Vývojová platforma pro React Native
+- **Expo Router** - File-based routing
+- **PocketBase** - Backend as a Service
+- **TypeScript** - Typová bezpečnost
+- **React Hook Form** - Správa formulářů
+- **Zod** - Validace schémat
+
+## Další příkazy
+
+```bash
+# Spuštění na Android
+npm run android
+
+# Spuštění na iOS
+npm run ios
+
+# Spuštění na webu
+npm run web
+
+# Lint
+npm run lint
+```
